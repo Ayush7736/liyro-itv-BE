@@ -1,9 +1,6 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.staticfiles import StaticFiles
-import uuid
-import os
-import shutil
-import json
+import uuid, os, shutil, json
 
 app = FastAPI()
 
@@ -34,8 +31,8 @@ app.mount("/videos", StaticFiles(directory="videos"), name="videos")
 @app.post("/create-job/")
 async def create_job(prompt: str = Form(...), file: UploadFile = File(...)):
     job_id = str(uuid.uuid4())
-
     file_path = f"inputs/{job_id}.png"
+
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -53,10 +50,9 @@ async def create_job(prompt: str = Form(...), file: UploadFile = File(...)):
 # get job
 @app.get("/get-job/{job_id}")
 def get_job(job_id: str):
-    db = load_db()
-    return db.get(job_id, {"error": "not found"})
+    return load_db().get(job_id, {"error": "not found"})
 
-# kaggle pulls job
+# worker pulls job
 @app.get("/next-job")
 def next_job():
     db = load_db()
@@ -67,7 +63,15 @@ def next_job():
             return {"job_id": jid, **job}
     return {"job_id": None}
 
-# kaggle completes job
+# upload video from kaggle
+@app.post("/upload-video/{job_id}")
+async def upload_video(job_id: str, file: UploadFile = File(...)):
+    path = f"videos/{job_id}.mp4"
+    with open(path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"ok": True}
+
+# mark done
 @app.post("/complete-job/{job_id}")
 def complete_job(job_id: str, video_url: str):
     db = load_db()
